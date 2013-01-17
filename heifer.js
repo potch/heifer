@@ -45,7 +45,7 @@ function analyze(data) {
     try {
         data = JSON.parse(data);
     } catch (e) {
-        console.log(data.substring(0,100));
+        console.log(data);
         throw "Data not valid JSON!";
     }
 
@@ -61,7 +61,9 @@ function analyze(data) {
 
     append('<style>table { font-family:monospace} tr { line-height: 1.4em; } tr:nth-child(2n+1) { background:#eee; } td { padding: 0 8px; }</style>');
 
-    append(header('Resource Breakdown'));
+    append(header('Page Weight Report for ' + decodeURIComponent(data.u)));
+
+    append(header('Resource Breakdown', 2));
 
     var total = 0;
     var types = {};
@@ -98,8 +100,9 @@ function analyze(data) {
     }
 }
 
-function header(txt) {
-    return '<h1>' + txt + '</h1>';
+function header(txt, l) {
+    l = l || 1
+    return '<h'+l+'>' + txt + '</h'+l+'>';
 }
 
 function table(data, rowFunc, header) {
@@ -118,7 +121,7 @@ function yslow(url, args, cb) {
     var output = '';
     var error = '';
 
-    args = ['yslow.js', '-icomps'].concat(args).concat([url]);
+    args = [__dirname + '/yslow.js', '-icomps'].concat(args).concat([url]);
     var job = spawn('phantomjs', args);
 
     job.stdout.on('data', function(data) {
