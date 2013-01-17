@@ -1,8 +1,14 @@
-# Suggested Usage
+# Usage
 
-    phantomjs yslow.js -icomps <URL> | node heifer.node.js > report.html
+    node heifer.node.js [options] <URL or file ...>
 
-Hoping to make this easier and less busted in the future.
+## Options
+
+    -h, --help        output usage information
+    -V, --version     output the version number
+    -u, --url         Analyze URL (default)
+    -j, --json        Parse JSON output from YSlow
+    -o, --out [file]  Path to write report to
 
 # Requirements
 
