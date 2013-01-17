@@ -1,3 +1,7 @@
+# Installation
+
+    npm install heifer
+
 # Usage
 
     heifer [options] [URL or file]

@@ -45,7 +45,6 @@ function analyze(data) {
     try {
         data = JSON.parse(data);
     } catch (e) {
-        console.log(data);
         throw "Data not valid JSON!";
     }
 
