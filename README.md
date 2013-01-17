@@ -1,6 +1,6 @@
 # Usage
 
-    node heifer.node.js [options] <URL or file ...>
+    heifer [options] [URL or file]
 
 ## Options
 

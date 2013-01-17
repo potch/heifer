@@ -1,7 +1,7 @@
 {
     "name": "heifer",
-    "description": "Website page-weight analysis tool",
-    "version": "0.0.0",
+    "description": "a simple page-weight analysis tool",
+    "version": "0.0.1",
     "author": {
         "name": "potch",
         "email": "me@potch.me"
@@ -17,5 +17,8 @@
     "engines": {
         "node": "0.8.6",
         "npm": "1.1.32"
+    },
+    "bin": {
+        "heifer": "./heifer.js"
     }
 }
