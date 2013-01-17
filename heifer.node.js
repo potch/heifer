@@ -1,10 +1,36 @@
 var _ = require('underscore');
-
+var fs = require('fs');
+var program = require('commander');
 var spawn = require('child_process').spawn;
 
-var url = process.argv[2];
+// Command line signature
+program
+  .version('0.0.1')
+  .usage('[options] <URL or file ...>')
+  .option('-u, --url', 'Analyze URL (default)')
+  .option('-j, --json', 'Parse JSON output from YSlow')
+  .option('-o, --out [file]', 'Path to write report to')
+  .parse(process.argv);
 
-console.log(process.argv);
+// --json
+if (program.json) {
+    (function() {
+        var file = program.args[0];
+
+        fs.readFile(file, function (err, data) {
+          if (err) throw err;
+          analyze(data);
+        });
+    })();
+} else {
+    var url = program.args[0];
+    if (url) {
+        yslow(url, [], analyze);
+    } else {
+        console.log('no input specified.');
+    }
+}
+
 
 var doc = '';
 
@@ -12,21 +38,14 @@ function append(content) {
     doc += content + '\n';
 }
 
-if (!url) {
-
-    console.log('no URL given!');
-
-} else {
-
-    var args = process.argv.slice(3);
-
-    yslow(url, args, analyze);
-
-}
-
 function analyze(data) {
 
-    data = JSON.parse(data);
+    try {
+        data = JSON.parse(data);
+    } catch (e) {
+        console.log(data.substring(0,100));
+        throw "Data not valid JSON!";
+    }
 
     var files = data.comps;
 
@@ -67,7 +86,14 @@ function analyze(data) {
         return [row.url, row.type, row.size];
     }, ['URL', 'type', 'size']));
 
-    console.log(doc);
+    if (program.out) {
+        fs.writeFile(program.out, doc, function(err) {
+            if (err) throw err;
+            console.log('Output written to ' + program.out);
+        });
+    } else {
+        console.log(doc);
+    }
 }
 
 function header(txt) {
@@ -75,14 +101,14 @@ function header(txt) {
 }
 
 function table(data, rowFunc, header) {
-    var out = '<table>';
+    var out = '<table>\n';
     if (header) {
-        out += '<tr><th>' + header.join('</th><th>') + '</th></tr>';
+        out += '<tr><th>' + header.join('</th><th>') + '</th></tr>\n';
     }
     data.forEach(function(row) {
-        out += '<tr><td>' + rowFunc(row).join('</td><td>') + '</td></tr>';
+        out += '<tr><td>' + rowFunc(row).join('</td><td>') + '</td></tr>\n';
     });
-    out += '</table>';
+    out += '</table>\n';
     return out;
 }
 
