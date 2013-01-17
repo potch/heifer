@@ -16,5 +16,5 @@
 
 # Requirements
 
-* phantomjs
 * node
+* phantomjs
