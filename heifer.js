@@ -129,8 +129,13 @@ function yslow(url, args, cb) {
     job.stderr.on('data', function(data) {
         error += data;
     });
-    job.on('exit', function() {
-        cb(output, error);
+    job.on('exit', function(code) {
+        if (code !== 0) {
+            console.error('Error:', 'phantomjs', args[0], 'exited:', code);
+            console.error('stderr:', error || '<empty>');
+        } else {
+            cb(output, error);
+        }
     });
 
 }
