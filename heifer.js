@@ -4,6 +4,9 @@ var _ = require('underscore');
 var fs = require('fs');
 var program = require('commander');
 var spawn = require('child_process').spawn;
+var http = require('http');
+var urlparse = require('url');
+
 
 // Command line signature
 program
@@ -12,6 +15,7 @@ program
   .option('-u, --url', 'Analyze URL (default)')
   .option('-j, --json', 'Parse JSON output from YSlow')
   .option('-o, --out [file]', 'Path to write report to')
+  .option('-p, --port [port]', 'Port to listen on in service mode')
   .parse(process.argv);
 
 // --json
@@ -24,13 +28,26 @@ if (program.json) {
           analyze(data);
         });
     })();
-} else {
+} else if (program.url) {
     var url = program.args[0];
     if (url) {
         yslow(url, [], analyze);
     } else {
         console.log('no input specified.');
     }
+} else {
+    var port = program.port || 8080;
+    http.createServer(function (req, res) {
+        var url = urlparse.parse(req.url, true).query.url;
+        if (!url) {
+            res.writeHead(200, {'Content-Type': 'text/plain'});
+            res.end('Missing URL parameter\n');
+        } else {
+            res.writeHead(200, {'Content-Type': 'text/html'});
+            yslow(url, [], analyze, res);
+        }
+    }).listen(port, '127.0.0.1');
+    console.log('Server running at http://127.0.0.1:' + port + '/');
 }
 
 
@@ -40,7 +57,7 @@ function append(content) {
     doc += content + '\n';
 }
 
-function analyze(data) {
+function analyze(data, error, res) {
 
     try {
         data = JSON.parse(data);
@@ -58,6 +75,8 @@ function analyze(data) {
         };
     });
 
+
+    doc = '';
     append('<style>table { font-family:monospace} tr { line-height: 1.4em; } tr:nth-child(2n+1) { background:#eee; } td { padding: 0 8px; }</style>');
 
     append(header('Page Weight Report for ' + decodeURIComponent(data.u)));
@@ -89,13 +108,17 @@ function analyze(data) {
         return [row.url, row.type, row.size];
     }, ['URL', 'type', 'size']));
 
-    if (program.out) {
-        fs.writeFile(program.out, doc, function(err) {
-            if (err) throw err;
-            console.log('Output written to ' + program.out);
-        });
+    if (program.url) {
+        if (program.out) {
+            fs.writeFile(program.out, doc, function(err) {
+                if (err) throw err;
+                console.log('Output written to ' + program.out);
+            });
+        } else {
+            console.log(doc);
+        }
     } else {
-        console.log(doc);
+        res.end(doc);
     }
 }
 
@@ -116,7 +139,7 @@ function table(data, rowFunc, header) {
     return out;
 }
 
-function yslow(url, args, cb) {
+function yslow(url, args, cb, res) {
     var output = '';
     var error = '';
 
@@ -130,7 +153,7 @@ function yslow(url, args, cb) {
         error += data;
     });
     job.on('exit', function() {
-        cb(output, error);
+        cb(output, error, res);
     });
 
 }
