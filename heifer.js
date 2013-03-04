@@ -157,7 +157,7 @@ function yslow(url, args, cb, res) {
             console.error('Error:', 'phantomjs', args[0], 'exited:', code);
             console.error('stderr:', error || '<empty>');
         } else {
-            cb(output, error);
+            cb(output, error, res);
         }
     });
 
