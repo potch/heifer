@@ -25,7 +25,7 @@ if (program.json) {
 
         fs.readFile(file, function (err, data) {
           if (err) throw err;
-          analyze(data);
+          analyze(data, null, null, 'json');
         });
     })();
 } else if (program.url) {
@@ -38,16 +38,17 @@ if (program.json) {
 } else {
     var port = program.port || 8080;
     http.createServer(function (req, res) {
-        var url = urlparse.parse(req.url, true).query.url;
-        if (!url) {
+        var query = urlparse.parse(req.url, true).query;
+        if (!query.url) {
             res.writeHead(200, {'Content-Type': 'text/plain'});
             res.end('Missing URL parameter\n');
         } else {
-            res.writeHead(200, {'Content-Type': 'text/html'});
-            yslow(url, [], analyze, res);
+            var ct = query.format == 'json' ? 'application/json' : 'text/html';
+            res.writeHead(200, {'Content-Type': ct});
+            yslow(query.url, [], analyze, res, query.format);
         }
-    }).listen(port, '127.0.0.1');
-    console.log('Server running at http://127.0.0.1:' + port + '/');
+    }).listen(port, '0.0.0.0');
+    console.log('Server running at http://0.0.0.0:' + port + '/');
 }
 
 
@@ -57,12 +58,12 @@ function append(content) {
     doc += content + '\n';
 }
 
-function analyze(data, error, res) {
+function analyze(data, error, res, format) {
 
     try {
         data = JSON.parse(data);
     } catch (e) {
-        throw "Data not valid JSON!";
+        throw 'Sorry, mate - invalid JSON!';
     }
 
     var files = data.comps;
@@ -100,25 +101,37 @@ function analyze(data, error, res) {
     types = _.sortBy(types, 1).reverse();
     types.push(['total', total]);
 
-    append(table(types, _.identity));
-
-    append(header('Resources Loaded'));
-
-    append(table(_.sortBy(files, 'size').reverse(), function(row) {
-        return [row.url, row.type, row.size];
-    }, ['URL', 'type', 'size']));
-
-    if (program.url) {
-        if (program.out) {
-            fs.writeFile(program.out, doc, function(err) {
-                if (err) throw err;
-                console.log('Output written to ' + program.out);
-            });
+    if (format == 'json') {
+        doc = JSON.stringify({
+            total: _.object(types),
+            resources: _.sortBy(files, 'size').reverse()
+        });
+        if (res) {
+            res.end(doc);
         } else {
             console.log(doc);
         }
     } else {
-        res.end(doc);
+        append(table(types, _.identity));
+
+        append(header('Resources Loaded'));
+
+        append(table(_.sortBy(files, 'size').reverse(), function(row) {
+            return [row.url, row.type, row.size];
+        }, ['URL', 'type', 'size']));
+
+        if (program.url) {
+            if (program.out) {
+                fs.writeFile(program.out, doc, function(err) {
+                    if (err) throw err;
+                    console.log('Output written to ' + program.out);
+                });
+            } else {
+                console.log(doc);
+            }
+        } else {
+            res.end(doc);
+        }
     }
 }
 
@@ -139,7 +152,7 @@ function table(data, rowFunc, header) {
     return out;
 }
 
-function yslow(url, args, cb, res) {
+function yslow(url, args, cb, res, format) {
     var output = '';
     var error = '';
 
@@ -157,8 +170,7 @@ function yslow(url, args, cb, res) {
             console.error('Error:', 'phantomjs', args[0], 'exited:', code);
             console.error('stderr:', error || '<empty>');
         } else {
-            cb(output, error, res);
+            cb(output, error, res, format);
         }
     });
-
 }
