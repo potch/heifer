@@ -12,29 +12,14 @@ var urlparse = require('url');
 program
   .version('0.0.2')
   .usage('[options] <URL or file ...>')
-  .option('-u, --url', 'Analyze URL (default)')
-  .option('-j, --json', 'Parse JSON output from YSlow')
-  .option('-o, --out [file]', 'Path to write report to')
-  .option('-p, --port [port]', 'Port to listen on in service mode')
+  .option('-u, --url <url>', 'Analyze URL (default)')
+  .option('-j, --export-json <file>', 'Path to write JSON report to')
+  .option('-h, --export-html <file>', 'Path to write HTML report to')
+  .option('-p, --port <port>', 'Port to listen on in service mode')
   .parse(process.argv);
 
-// --json
-if (program.json) {
-    (function() {
-        var file = program.args[0];
-
-        fs.readFile(file, function (err, data) {
-          if (err) throw err;
-          analyze(data, null, null, 'json');
-        });
-    })();
-} else if (program.url) {
-    var url = program.args[0];
-    if (url) {
-        yslow(url, [], analyze);
-    } else {
-        console.log('no input specified.');
-    }
+if (program.url) {
+    yslow(program.url, [], analyze, null);
 } else {
     var port = program.port || 8080;
     http.createServer(function (req, res) {
@@ -51,15 +36,14 @@ if (program.json) {
     console.log('Server running at http://0.0.0.0:' + port + '/');
 }
 
-
-var doc = '';
+var docJSON = {};
+var docHTML = '';
 
 function append(content) {
-    doc += content + '\n';
+    docHTML += content + '\n';
 }
 
-function analyze(data, error, res, format) {
-
+function analyze(data, error, res) {
     try {
         data = JSON.parse(data);
     } catch (e) {
@@ -77,7 +61,7 @@ function analyze(data, error, res, format) {
     });
 
 
-    doc = '';
+    docHTML = '';
     append('<style>table { font-family:monospace} tr { line-height: 1.4em; } tr:nth-child(2n+1) { background:#eee; } td { padding: 0 8px; }</style>');
 
     append(header('Page Weight Report for ' + decodeURIComponent(data.u)));
@@ -101,36 +85,41 @@ function analyze(data, error, res, format) {
     types = _.sortBy(types, 1).reverse();
     types.push(['total', total]);
 
-    if (format == 'json') {
-        doc = JSON.stringify({
+    var resources = _.sortBy(files, 'size').reverse();
+
+    if (program.exportJson) {
+        docJSON = JSON.stringify({
             total: _.object(types),
-            resources: _.sortBy(files, 'size').reverse()
-        });
-        if (res) {
-            res.end(doc);
-        } else {
-            console.log(doc);
-        }
-    } else {
+            resources: resources
+        }, null, 2);
+
+        (res ? res.end : console.log)(docJSON);
+    }
+
+    if (program.exportHtml) {
         append(table(types, _.identity));
 
         append(header('Resources Loaded'));
 
-        append(table(_.sortBy(files, 'size').reverse(), function(row) {
+        append(table(resources, function(row) {
             return [row.url, row.type, row.size];
         }, ['URL', 'type', 'size']));
 
-        if (program.url) {
-            if (program.out) {
-                fs.writeFile(program.out, doc, function(err) {
-                    if (err) throw err;
-                    console.log('Output written to ' + program.out);
-                });
-            } else {
-                console.log(doc);
-            }
-        } else {
-            res.end(doc);
+        (res ? res.end : console.log)(docHTML);
+    }
+
+    if (program.url) {
+        if (program.exportJson) {
+            fs.writeFile(program.exportJson, docJSON, function(err) {
+                if (err) throw err;
+                console.log('Output written to ' + program.exportJson);
+            });
+        }
+        if (program.exportHtml) {
+            fs.writeFile(program.exportHtml, docHTML, function(err) {
+                if (err) throw err;
+                console.log('Output written to ' + program.exportHtml);
+            });
         }
     }
 }
@@ -152,7 +141,7 @@ function table(data, rowFunc, header) {
     return out;
 }
 
-function yslow(url, args, cb, res, format) {
+function yslow(url, args, cb, res) {
     var output = '';
     var error = '';
 
@@ -170,7 +159,7 @@ function yslow(url, args, cb, res, format) {
             console.error('Error:', 'phantomjs', args[0], 'exited:', code);
             console.error('stderr:', error || '<empty>');
         } else {
-            cb(output, error, res, format);
+            cb(output, error, res);
         }
     });
 }
